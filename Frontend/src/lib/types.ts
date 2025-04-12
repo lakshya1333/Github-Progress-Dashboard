@@ -28,7 +28,7 @@ export interface Repository {
 export interface ContributionDay {
   date: string;
   count: number;
-  level: 0 | 1 | 2 | 3 | 4; // 0 = no contributions, 4 = most contributions
+  level: 0 | 1 | 2 | 3 | 4; 
 }
 
 export interface ContributionCalendar {

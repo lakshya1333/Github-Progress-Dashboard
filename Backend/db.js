@@ -4,12 +4,14 @@ import dotenv from "dotenv";
 dotenv.config();
 
 const pool = new Pool({
-  user: process.env.user,
-  host: process.env.host,
-  database: process.env.database,
-  password: process.env.password,
-  port: process.env.port
+  user: process.env.DB_USER,
+  host: process.env.DB_HOST,
+  database: process.env.DB_NAME,
+  password: process.env.DB_PASSWORD,
+  port: process.env.port,
+  ssl: { rejectUnauthorized: false }
 });
+
 
 const createTables = async () => {
   const client = await pool.connect();
@@ -50,11 +52,91 @@ const createTables = async () => {
 
       CREATE TABLE IF NOT EXISTS Commits (
         commit_id SERIAL PRIMARY KEY,
-        repo_id INT REFERENCES Repositories(repo_id) ON DELETE CASCADE,
+        repo VARCHAR(512),
         user_id INT REFERENCES Users(user_id) ON DELETE CASCADE,
-        message TEXT NOT NULL,
-        url VARCHAR(512) NOT NULL,
+        message TEXT,
+        url VARCHAR(1024),
+        datee TIMESTAMP
+      );
+
+      CREATE TABLE IF NOT EXISTS Milestones (
+        milestone_id SERIAL PRIMARY KEY,
+        user_id INT REFERENCES Users(user_id) ON DELETE CASCADE,
+        title VARCHAR(255) NOT NULL,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+
+      CREATE TABLE IF NOT EXISTS Milestone_Details (
+          detail_id SERIAL PRIMARY KEY,
+          milestone_id INT REFERENCES Milestones(milestone_id) ON DELETE CASCADE,
+          description TEXT,
+          due_date TIMESTAMP,
+          state VARCHAR(50),
+          updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+
+      CREATE TABLE IF NOT EXISTS Follows (
+          follow_id SERIAL PRIMARY KEY,
+          follower_id INT REFERENCES Users(user_id) ON DELETE CASCADE,
+          follows_id INT REFERENCES Users(user_id) ON DELETE CASCADE,
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          UNIQUE(follower_id, follows_id)
+      );
+
+      CREATE TABLE IF NOT EXISTS PullRequests (
+          pr_id SERIAL PRIMARY KEY,
+          repo_id INT REFERENCES Repositories(repo_id) ON DELETE CASCADE,
+          title VARCHAR(255) NOT NULL,
+          description TEXT,
+          state VARCHAR(50),
+          created_at TIMESTAMP,
+          merged_at TIMESTAMP,
+          initiator_id INT REFERENCES Users(user_id) ON DELETE SET NULL,
+          merger_id INT REFERENCES Users(user_id) ON DELETE SET NULL
+      );
+
+      CREATE TABLE IF NOT EXISTS PullRequestChanges (
+          change_id SERIAL PRIMARY KEY,
+          pr_id INT REFERENCES PullRequests(pr_id) ON DELETE CASCADE,
+          file_path VARCHAR(512),
+          changes TEXT,
+          status VARCHAR(50)
+      );
+
+      CREATE TABLE IF NOT EXISTS Issues (
+          issue_id SERIAL PRIMARY KEY,
+          repo_id INT REFERENCES Repositories(repo_id) ON DELETE CASCADE,
+          title VARCHAR(255) NOT NULL,
+          description TEXT,
+          state VARCHAR(50),
+          created_at TIMESTAMP,
+          closed_at TIMESTAMP,
+          creator_id INT REFERENCES Users(user_id) ON DELETE SET NULL
+      );
+
+      CREATE TABLE IF NOT EXISTS RepositoryLanguages (
+          repo_language_id SERIAL PRIMARY KEY,
+          repo_id INT REFERENCES Repositories(repo_id) ON DELETE CASCADE,
+          language VARCHAR(100) NOT NULL,
+          percentage FLOAT,
+          UNIQUE(repo_id, language)
+      );
+
+      CREATE TABLE IF NOT EXISTS Contributors (
+          contributor_id SERIAL PRIMARY KEY,
+          repo_id INT REFERENCES Repositories(repo_id) ON DELETE CASCADE,
+          user_id INT REFERENCES Users(user_id) ON DELETE CASCADE,
+          contributions INT DEFAULT 0,
+          UNIQUE(repo_id, user_id)
+      );
+
+      CREATE TABLE IF NOT EXISTS CodeChanges (
+          change_id SERIAL PRIMARY KEY,
+          commit_id INT REFERENCES Commits(commit_id) ON DELETE CASCADE,
+          file_path VARCHAR(512),
+          line_number INT,
+          content TEXT,
+          change_type VARCHAR(20)
       );
     `);
 

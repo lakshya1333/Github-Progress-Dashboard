@@ -1,31 +1,21 @@
 import { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { GithubUser, GithubStats, Repository } from '../lib/types';
-import { fetchRepositories,fetchUserDetails  } from '../api/githubApi';
+import { fetchRepositories, fetchUserDetails, getUserPullRequests, getUserStarsGiven, fetchAllCommits } from '../api/githubApi';
 import Navbar from '../components/Navbar';
 import ProfileHeader from '../components/ProfileHeader';
 import StatCard from '../components/StatCard';
-import ContributionCalendar from '../components/ContributionCalendar';
-import ActivityTimeline from '../components/ActivityTimeline';
+import CommitTimeline from '../components/CommitTimeline';
 import RepositoryList from '../components/RepositoryList';
 import LanguageChart from '../components/LanguageChart';
+import CommitGraph from '../components/CommitGraph'; // Import CommitGraph
 import { 
   GitCommit, 
-  //GitPullRequest, 
-  //MessageSquare, 
   Folder, 
-  //Star, 
-  //Sparkles,
-  ArrowUp
+  ArrowUp 
 } from 'lucide-react';
-//import { Button } from '../components/ui/button';
-//import { useToast } from '../hooks/use-toast';
 
 const Index = () => {
-  //const [apiUrl, setApiUrl] = useState<string>('');
-  //const [isConfigured, setIsConfigured] = useState<boolean>(false);
-  //const { toast } = useToast();
-
   const { data: user, isLoading: isUserLoading } = useQuery<GithubUser>({
     queryKey: ['githubUser'],
     queryFn: fetchUserDetails,
@@ -33,13 +23,27 @@ const Index = () => {
 
   const { data: stats = {} as GithubStats, isLoading: isStatsLoading } = useQuery<GithubStats>({
     queryKey: ['githubStats'],
-    // queryFn: fetchGithubStats,
   });
 
   const { data: repositories = [], isLoading: isReposLoading } = useQuery<Repository[]>({
     queryKey: ['repositories'],
     queryFn: fetchRepositories,
   });
+
+  const { data: pullRequests = 0, isLoading: isPullRequestsLoading } = useQuery<number>({
+    queryKey: ['pullRequests'],
+    queryFn: getUserPullRequests,
+  });
+
+  const { data: starsGiven = 0, isLoading: isStarsGivenLoading } = useQuery<number>({
+    queryKey: ['starsGiven'],
+    queryFn: getUserStarsGiven,
+  });
+  
+  const { data: commits = [], isLoading: isCommitsLoading } = useQuery<Array<any>>({
+    queryKey: ['commits'],
+    queryFn: fetchAllCommits,
+  });  
 
   const scrollToTop = () => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -71,30 +75,16 @@ const Index = () => {
         
         {/* Stats Overview */}
         <section className="mb-8 opacity-0 animate-slide-up" style={{ animationDelay: '200ms' }}>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
-            {stats ? (
-              <StatCard 
-                title="Total Commits" 
-                value={stats.totalCommits}
-                icon={<GitCommit className="h-5 w-5" />}
-                description="Last year"
-                trend="up"
-                trendValue="12%"
-                isLoading={isStatsLoading}
-              />
-            ) : (
-              <p className="text-center text-muted-foreground">Stats not found</p>
-            )}
-
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
             {stats ? (
               <StatCard 
                 title="Pull Request" 
-                value={stats.totalCommits}
+                value={pullRequests}
                 icon={<GitCommit className="h-5 w-5" />}
                 description="Last year"
                 trend="up"
                 trendValue="12%"
-                isLoading={isStatsLoading}
+                isLoading={isPullRequestsLoading}
               />
             ) : (
               <p className="text-center text-muted-foreground">Stats not found</p>
@@ -103,20 +93,20 @@ const Index = () => {
             {stats ? (
               <StatCard 
                 title="Issues" 
-                value={stats.totalCommits}
+                value={pullRequests}
                 icon={<GitCommit className="h-5 w-5" />}
                 description="Last year"
                 trend="up"
                 trendValue="12%"
-                isLoading={isStatsLoading}
+                isLoading={isPullRequestsLoading}
               />
             ) : (
               <p className="text-center text-muted-foreground">Stats not found</p>
             )}
 
             <StatCard 
-              title="Repositories" 
-              value={stats?.totalRepos || 0}
+              title="Public Repositories" 
+              value={repositories.length}
               icon={<Folder className="h-5 w-5" />}
               description="Total"
               isLoading={isStatsLoading}
@@ -125,12 +115,12 @@ const Index = () => {
             {stats ? (
               <StatCard 
                 title="Star Given" 
-                value={stats.totalCommits}
+                value={starsGiven}
                 icon={<GitCommit className="h-5 w-5" />}
                 description="Last year"
                 trend="up"
                 trendValue="12%"
-                isLoading={isStatsLoading}
+                isLoading={isStarsGivenLoading}
               />
             ) : (
               <p className="text-center text-muted-foreground">Stats not found</p>
@@ -139,7 +129,7 @@ const Index = () => {
             {stats ? (
               <StatCard 
                 title="Star Received" 
-                value={stats.totalCommits}
+                value={repositories.reduce((sum, repo) => sum + (repo.stargazers_count || 0), 0)}
                 icon={<GitCommit className="h-5 w-5" />}
                 description="Last year"
                 trend="up"
@@ -152,28 +142,26 @@ const Index = () => {
           </div>
         </section>
         
-        {/* Contribution Calendar */}
+        {/* Commit Graph (Replacing Contribution Calendar) */}
         <section className="mb-8 opacity-0 animate-slide-up" style={{ animationDelay: '300ms' }}>
-          <ContributionCalendar 
-            calendar={stats?.contributionCalendar}
-            isLoading={isStatsLoading}
-          />
+          <CommitGraph />
         </section>
         
         {/* Repositories and Activity */}
         <section className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
           <div className="opacity-0 animate-slide-up bg-gray-100 dark:bg-gray-800 p-4 rounded-lg" style={{ animationDelay: '400ms' }}>
             <RepositoryList 
-              repositories={repositories || []} // Pass the fetched repositories
-              isLoading={isReposLoading} // Pass the loading state
+              repositories={repositories || []} 
+              isLoading={isReposLoading} 
               className="h-full"
             />
           </div>
           
-          <div className="opacity-0 animate-slide-up bg-gray-100 dark:bg-gray-800 p-4 rounded-lg" style={{ animationDelay: '500ms' }}>
-            <ActivityTimeline 
-              activities={stats?.recentActivity}
-              isLoading={isStatsLoading}
+          <div className="opacity-0 animate-slide-up bg-gray-100 dark:bg-gray-800 p-4 rounded-lg overflow-y-auto h-96" style={{ animationDelay: '500ms' }}>
+            {/* Scrollable commit timeline */}
+            <CommitTimeline 
+              commits={commits}
+              isLoading={isCommitsLoading}
               className="h-full"
             />
           </div>

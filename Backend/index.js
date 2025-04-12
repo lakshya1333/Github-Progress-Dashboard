@@ -8,7 +8,10 @@ import session from "express-session";
 import pool from "./db.js";
 import {
   fetchUserDetails,
-  fetchUserRepos
+  fetchUserRepos,
+  fetchUserCommits,
+  fetchUserIssues,
+  fetchUserStarsGiven
 } from "./scrape.js";
 import cookieParser from "cookie-parser";
 import path from "path";
@@ -149,53 +152,26 @@ passport.use(
                 repo.pushed_at,
               ]
             );
-          } else {
-            await client.query(
-              `UPDATE Repositories SET 
-                name = $3, description = $4, html_url = $5, 
-                stargazers_count = $6, forks_count = $7, open_issues_count = $8, language = $9, 
-                size = $10, created_at = $11, updated_at = $12, pushed_at = $13
-                WHERE user_id = $1 AND github_repo_id = $2`,
-              [
-                user.user_id,
-                repo.id,
-                repo.name,
-                repo.description,
-                repo.html_url,
-                repo.stargazers_count,
-                repo.forks_count,
-                repo.open_issues_count,
-                repo.language,
-                repo.size,
-                repo.created_at,
-                repo.updated_at,
-                repo.pushed_at,
-              ]
-            );
           }
         }
 
-        // const commits = await fetchUserCommits(profile.username);
-        // for (const commit of commits) {
-        //   const commitCheck = await client.query(
-        //     "SELECT * FROM Commits WHERE user_id = $1",
-        //     [user.user_id]
-        //   );
+        const commits = await fetchUserCommits(profile.username);
 
-        //   if (commitCheck.rows.length === 0) {
-        //     await client.query(
-        //       `INSERT INTO Commits (repo_id, user_id, message, url, created_at)
-        //        VALUES ($1, $2, $3, $4, $5)`,
-        //       [
-        //         commit.repo_id,
-        //         user.user_id,
-        //         commit.message,
-        //         commit.url,
-        //         commit.date,
-        //       ]
-        //     );
-        //   }
-        // }
+        for (const commit of commits) {  
+          await client.query(
+            `INSERT INTO Commits (repo, user_id, message, url, datee) 
+            VALUES ($1, $2, $3, $4, $5) 
+            ON CONFLICT DO NOTHING`,  
+            [
+              commit.repo,
+              user.user_id,
+              commit.message,
+              commit.url,
+              commit.date,  
+            ]
+          );
+        }
+
 
         const token = jwt.sign({ userId: user.user_id }, JWT_SECRET);
         client.release();
@@ -268,8 +244,6 @@ app.get("/user/details", async (req, res) => {
 });
 
 
-
-
 app.get("/user/repos", async (req, res) => {
   try {
     const token = req.cookies.token; 
@@ -300,6 +274,47 @@ app.get("/user/repos", async (req, res) => {
     }
   } catch (err) {
     console.error("Error fetching repositories:", err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.get("/user/activity", async (req, res) => {
+  try {
+    const token = req.cookies.token;
+    
+    if (!token) {
+      return res.status(401).json({ error: "Unauthorized: No token provided" });
+    }
+
+    let decoded;
+    try {
+      decoded = jwt.verify(token, JWT_SECRET);
+    } catch (err) {
+      console.error("Token verification failed:", err.message);
+      return res.status(401).json({ error: "Unauthorized: Invalid token" });
+    }
+
+    const client = await pool.connect();
+    try {
+      const userRes = await client.query("SELECT username FROM Users WHERE user_id = $1", [decoded.userId]);
+
+      if (userRes.rows.length === 0) {
+        return res.status(404).json({ error: "User not found" });
+      }
+
+      const username = userRes.rows[0].username;
+
+      const [issuesCreated, starsGiven] = await Promise.all([
+        fetchUserIssues(username),
+        fetchUserStarsGiven(username),
+      ]);
+
+      res.json({ issuesCreated, starsGiven });
+    } finally {
+      client.release();
+    }
+  } catch (err) {
+    console.error("Error fetching user activity:", err.message);
     res.status(500).json({ error: err.message });
   }
 });
@@ -338,9 +353,43 @@ app.get("/user/commits", async (req, res) => {
   }
 });
 
+app.get("/user/commitsperday", async (req, res) => {
+  try {
+    const token = req.cookies.token; 
+    console.log("Token is: " + token);
+    
+    if (!token) {
+      console.log("Error: No token provided");
+      return res.status(401).json({ error: "Unauthorized: No token provided" });
+    }
 
+    let decoded;
+    try {
+      decoded = jwt.verify(token, JWT_SECRET);
+    } catch (err) {
+      console.error("Token verification failed:", err.message);
+      return res.status(401).json({ error: "Unauthorized: Invalid token" });
+    }
 
-
+    const client = await pool.connect();
+    try {
+      const commits = await client.query(
+        `SELECT DATE(datee) as commit_date, COUNT(*) as commit_count
+         FROM Commits
+         WHERE user_id = $1
+         GROUP BY commit_date
+         ORDER BY commit_date`,
+        [decoded.userId]
+      );
+      res.json(commits.rows || []);
+    } finally {
+      client.release();
+    }
+  } catch (err) {
+    console.error("Error fetching repositories:", err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
 
 app.get("/logout", (req, res) => {
   res.clearCookie("token");

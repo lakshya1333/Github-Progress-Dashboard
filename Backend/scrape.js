@@ -35,13 +35,55 @@ export async function fetchUserDetails(username) {
   }
 }
 
+export async function fetchUserIssues(username) {
+  try {
+    const response = await octokit.rest.search.issuesAndPullRequests({
+      q: `author:${username} type:issue`,
+      per_page: 1,  
+    });
+
+    return response.data.total_count;  
+  } catch (error) {
+    console.error('Error fetching user issues:', error);
+    return 0;
+  }
+}
+
+export async function fetchUserPullRequests(username) {
+  try {
+    const response = await octokit.rest.search.issuesAndPullRequests({
+      q: `author:${username} type:pr`,
+      per_page: 1,  
+    });
+
+    return response.data.total_count;  
+  } catch (error) {
+    console.error('Error fetching user pull requests:', error);
+    return 0;
+  }
+}
 
 
-export async function fetchUserCommits(username) { // yeh commit match karega
+export async function fetchUserStarsGiven(username) {
+  try {
+    const response = await octokit.rest.activity.listReposStarredByUser({
+      username: username,
+      per_page: 1, 
+    });
+
+    return response.data.length;  
+  } catch (error) {
+    console.error('Error fetching stars given by user:', error);
+    return 0;
+  }
+}
+
+
+export async function fetchUserCommits(username, ncommits=100) { 
   try {
     const response = await octokit.rest.search.commits({
       q: `author:${username}`,
-      per_page: 100,
+      per_page: ncommits,
     });
 
     return response.data.items.map(commit => ({
