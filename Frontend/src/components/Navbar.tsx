@@ -1,14 +1,19 @@
-
 import React from 'react';
 import { Github, Menu, X } from 'lucide-react';
 import { Button } from "../components/ui/button";
 import { cn } from '../lib/utils';
 import ThemeToggle from "./ThemeToggle";
+import PDFDownloadButton from '../components/PDFDownloadButton';
+import { GithubUser, Repository } from '../lib/types';
+
 interface NavbarProps {
   className?: string;
+  userData?: GithubUser;
+  repositories?: Repository[];
+  dashboardRef?: React.RefObject<HTMLDivElement>;
 }
 
-const Navbar: React.FC<NavbarProps> = ({ className }) => {
+const Navbar: React.FC<NavbarProps> = ({ className, userData, repositories, dashboardRef }) => {
   const [isMenuOpen, setIsMenuOpen] = React.useState(false);
 
   const toggleMenu = () => {
@@ -29,6 +34,14 @@ const Navbar: React.FC<NavbarProps> = ({ className }) => {
         {/* Desktop menu */}
         <div className="hidden md:flex items-center gap-6">
           <ThemeToggle/>
+          {dashboardRef && userData && repositories && (
+            <PDFDownloadButton 
+              targetRef={dashboardRef} 
+              filename="github-profile-snapshot.pdf" 
+              userData={userData}
+              repositories={repositories}
+            />
+          )}
           <a href="#" className="text-sm font-medium hover:text-github-blue transition-colors">
             Dashboard
           </a>
@@ -44,7 +57,15 @@ const Navbar: React.FC<NavbarProps> = ({ className }) => {
         </div>
         
         {/* Mobile menu button */}
-        <div className="md:hidden">
+        <div className="md:hidden flex items-center gap-2">
+          {dashboardRef && userData && repositories && (
+            <PDFDownloadButton 
+              targetRef={dashboardRef} 
+              filename="github-profile-snapshot.pdf" 
+              userData={userData}
+              repositories={repositories}
+            />
+          )}
           <Button 
             variant="ghost" 
             size="icon" 
@@ -72,7 +93,6 @@ const Navbar: React.FC<NavbarProps> = ({ className }) => {
             <a href="#" className="text-sm font-medium hover:text-github-blue transition-colors">
               About
             </a>
-            
           </div>
         </div>
       )}

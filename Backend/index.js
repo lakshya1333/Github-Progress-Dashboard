@@ -75,7 +75,16 @@ passport.use(
         );
         console.log(profile)
 
+        
         const githubUser = await fetchUserDetails(profile.username);
+
+      if (!githubUser) {
+        console.error(`GitHub user details not found for username: ${profile.username}`);
+        return done(new Error("Failed to fetch GitHub user details"));
+      }
+
+
+        
 
         if (userRes.rows.length === 0) {
           const newUserRes = await client.query(
@@ -390,6 +399,54 @@ app.get("/user/commitsperday", async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
+
+
+import fs from 'fs';
+import { execSync } from "child_process";
+import { nanoid } from "nanoid";
+
+
+
+app.post('/latex-to-pdf', (req, res) => {
+  const outputPath = path.join(__dirname, 'latex_output');
+  const id = nanoid();
+  const texPath = path.join(__dirname, `${id}.tex`);
+  const pdfPath = path.join(outputPath, `${id}.pdf`);
+  const latexCode = req.body.latex;
+
+  console.log("==== LATEX FILE CONTENT ====");
+  console.log(latexCode);
+
+  fs.writeFileSync(texPath, latexCode);
+
+  // Wrap paths in double quotes to handle spaces
+  const quotedOutputPath = `"${outputPath}"`;
+  const quotedTexPath = `"${texPath}"`;
+
+  try {
+    const command = `"C:\\Program Files\\MiKTeX\\miktex\\bin\\x64\\pdflatex.exe" -output-directory=${quotedOutputPath} ${quotedTexPath}`;
+    console.log('Running command:', command);
+    execSync(command, { stdio: 'inherit' });
+
+    const pdf = fs.readFileSync(pdfPath);
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', 'attachment; filename=github-profile.pdf');
+    res.send(pdf);
+  } catch (error) {
+    console.error('LaTeX compile error:', error.message);
+    res.status(500).send('Failed to compile LaTeX.');
+  } finally {
+    try {
+      fs.unlinkSync(texPath);
+      fs.unlinkSync(pdfPath);
+      fs.unlinkSync(path.join(__dirname, `${id}.log`));
+      fs.unlinkSync(path.join(__dirname, `${id}.aux`));
+    } catch (_) {}
+  }
+});
+
+
+
 
 app.get("/logout", (req, res) => {
   res.clearCookie("token");

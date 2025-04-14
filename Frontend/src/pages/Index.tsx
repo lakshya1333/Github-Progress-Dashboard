@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { GithubUser, GithubStats, Repository } from '../lib/types';
 import { fetchRepositories, fetchUserDetails, getUserPullRequests, getUserStarsGiven, fetchAllCommits } from '../api/githubApi';
@@ -14,6 +14,7 @@ import {
   Folder, 
   ArrowUp 
 } from 'lucide-react';
+
 
 const Index = () => {
   const { data: user, isLoading: isUserLoading } = useQuery<GithubUser>({
@@ -51,6 +52,9 @@ const Index = () => {
 
   const [showScrollTop, setShowScrollTop] = useState(false);
 
+
+
+
   useEffect(() => {
     const handleScroll = () => {
       setShowScrollTop(window.scrollY > 500);
@@ -59,12 +63,16 @@ const Index = () => {
     window.addEventListener('scroll', handleScroll);
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
-
+  const dashboardRef = useRef<HTMLDivElement>(null);
   return (
     <div className="min-h-screen bg-background dark:bg-gray-900 flex flex-col">
-      <Navbar />
+<Navbar 
+  userData={user} 
+  repositories={repositories} 
+  dashboardRef={dashboardRef} 
+/>
       
-      <main className="flex-1 container px-4 py-8">
+      <main ref={dashboardRef} className="flex-1 container px-4 py-8">
         {/* Profile Section */}
         <section className="mb-8 opacity-0 animate-slide-up" style={{ animationDelay: '100ms' }}>
           <ProfileHeader 
@@ -176,6 +184,7 @@ const Index = () => {
         </section>
         
       </main>
+
       
       {/* Footer */}
       <footer className="py-6 border-t dark:border-gray-700">
