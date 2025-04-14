@@ -134,34 +134,36 @@ passport.use(
 
         const repos = await fetchUserRepos(profile.username);
         for (const repo of repos) {
-          const repoCheck = await client.query(
-            "SELECT * FROM Repositories WHERE user_id = $1 AND github_repo_id = $2",
-            [user.user_id, repo.id]
+          await client.query(
+            `INSERT INTO Repositories (
+              user_id, github_repo_id, name, description,
+              stargazers_count, forks_count, open_issues_count, language,
+              size, created_at, updated_at, pushed_at
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+            ON CONFLICT (github_repo_id) 
+            DO UPDATE SET
+              stargazers_count = EXCLUDED.stargazers_count,
+              forks_count = EXCLUDED.forks_count,
+              open_issues_count = EXCLUDED.open_issues_count,
+              language = EXCLUDED.language,
+              size = EXCLUDED.size,
+              updated_at = EXCLUDED.updated_at,
+              pushed_at = EXCLUDED.pushed_at`,
+            [
+              user.user_id,
+              repo.id,
+              repo.name,
+              repo.description,
+              repo.stargazers_count,
+              repo.forks_count,
+              repo.open_issues_count,
+              repo.language,
+              repo.size,
+              repo.created_at,
+              repo.updated_at,
+              repo.pushed_at,
+            ]
           );
-
-          if (repoCheck.rows.length === 0) {
-            await client.query(
-              `INSERT INTO Repositories (
-                user_id, github_repo_id, name, description,
-                stargazers_count, forks_count, open_issues_count, language,
-                size, created_at, updated_at, pushed_at
-              ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`,
-              [
-                user.user_id,
-                repo.id,
-                repo.name,
-                repo.description,
-                repo.stargazers_count,
-                repo.forks_count,
-                repo.open_issues_count,
-                repo.language,
-                repo.size,
-                repo.created_at,
-                repo.updated_at,
-                repo.pushed_at,
-              ]
-            );
-          }
         }
 
         const commits = await fetchUserCommits(profile.username);
@@ -238,16 +240,30 @@ app.get("/user/details", async (req, res) => {
 
     const client = await pool.connect();
     try {
+      // Get basic user info
       const user = await client.query(
         "SELECT * FROM Users WHERE user_id = $1",
         [decoded.userId]
       );
-      res.json(user.rows || []);
+      
+      // Get comprehensive stats using the function
+      const stats = await client.query(
+        "SELECT * FROM get_user_stats($1)",
+        [decoded.userId]
+      );
+
+      // Combine results
+      const result = {
+        ...user.rows[0],
+        stats: stats.rows[0]
+      };
+      
+      res.json(result);
     } finally {
       client.release();
     }
   } catch (err) {
-    console.error("Error fetching repositories:", err.message);
+    console.error("Error fetching user details:", err.message);
     res.status(500).json({ error: err.message });
   }
 });
@@ -287,6 +303,7 @@ app.get("/user/repos", async (req, res) => {
   }
 });
 
+
 app.get("/user/activity", async (req, res) => {
   try {
     const token = req.cookies.token;
@@ -299,20 +316,24 @@ app.get("/user/activity", async (req, res) => {
     try {
       decoded = jwt.verify(token, JWT_SECRET);
     } catch (err) {
-      console.error("Token verification failed:", err.message);
       return res.status(401).json({ error: "Unauthorized: Invalid token" });
     }
 
     const client = await pool.connect();
     try {
-      const userRes = await client.query("SELECT username FROM Users WHERE user_id = $1", [decoded.userId]);
-
+      // First get the username
+      const userRes = await client.query(
+        "SELECT username FROM Users WHERE user_id = $1", 
+        [decoded.userId]
+      );
+      
       if (userRes.rows.length === 0) {
         return res.status(404).json({ error: "User not found" });
       }
-
+      
       const username = userRes.rows[0].username;
 
+      // Now use the username for fetching
       const [issuesCreated, starsGiven] = await Promise.all([
         fetchUserIssues(username),
         fetchUserStarsGiven(username),
@@ -399,7 +420,6 @@ app.get("/user/commitsperday", async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
-
 
 import fs from 'fs';
 import { execSync } from "child_process";
