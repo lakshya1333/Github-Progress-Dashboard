@@ -65,3 +65,10 @@ export interface GithubStats {
   recentActivity: Contribution[];
   popularRepositories: Repository[];
 }
+
+export interface LanguageStat {
+  name: string;
+  percentage: number;
+  color: string;
+};
+

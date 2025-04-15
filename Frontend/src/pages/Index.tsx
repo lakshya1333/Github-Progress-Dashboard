@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { GithubUser, GithubStats, Repository } from '../lib/types';
+import { GithubUser, GithubStats, Repository, LanguageStat } from '../lib/types';
 import { fetchRepositories, fetchUserDetails, getUserPullRequests, getUserStarsGiven, fetchAllCommits } from '../api/githubApi';
 import Navbar from '../components/Navbar';
 import ProfileHeader from '../components/ProfileHeader';
@@ -51,6 +51,25 @@ const Index = () => {
   };
 
   const [showScrollTop, setShowScrollTop] = useState(false);
+
+  const [languages, setLanguages] = useState<LanguageStat[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchLanguages = async () => {
+      try {
+        const res = await fetch('/user/languages'); // this hits Express backend
+        const data = await res.json();
+        setLanguages(data.languages);
+      } catch (err) {
+        console.error('Error fetching language stats:', err);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchLanguages();
+  }, []);
 
 
 
@@ -178,8 +197,7 @@ const Index = () => {
         {/* Languages */}
         <section className="opacity-0 animate-slide-up" style={{ animationDelay: '600ms' }}>
           <LanguageChart 
-            languages={stats?.topLanguages}
-            isLoading={isStatsLoading}
+            languages={languages} isLoading={isLoading}
           />
         </section>
         
@@ -193,7 +211,7 @@ const Index = () => {
             GitHub Stats Dashboard • {new Date().getFullYear()}
           </p>
           <p className="text-sm text-muted-foreground">
-            Built with React, TypeScript, and Tailwind CSS
+            Built by Lakshya Jain, Madhav Menon and Mayur Das
           </p>
         </div>
       </footer>

@@ -303,6 +303,38 @@ app.get("/user/repos", async (req, res) => {
   }
 });
 
+function getRandomColor() {
+  const hue = Math.floor(Math.random() * 360);
+  return `hsl(${hue}, 70%, 70%)`;
+}
+
+app.get('/user/languages', async (req, res) => {
+  const client = await pool.connect();
+  try {
+    const result = await client.query(`
+      SELECT language, COUNT(*) as count
+      FROM Repositories
+      WHERE language IS NOT NULL
+      GROUP BY language
+    `);
+     
+    const rows = result.rows;
+
+    const total = rows.reduce((acc, row) => acc + parseInt(row.count), 0);
+
+    const languages = rows.map(row => ({
+      name: row.language,
+      percentage: parseFloat(((row.count / total) * 100).toFixed(2)),
+      color: getRandomColor()
+    }));
+
+    res.json({ languages });
+  } catch (err) {
+    console.error('Error fetching languages:', err);
+    res.status(500).json({ error: 'Internal Server Error' });
+  }
+});
+
 
 app.get("/user/activity", async (req, res) => {
   try {
