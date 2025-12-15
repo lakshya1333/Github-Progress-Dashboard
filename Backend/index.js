@@ -11,7 +11,9 @@ import {
   fetchUserRepos,
   fetchUserCommits,
   fetchUserIssues,
-  fetchUserStarsGiven
+  fetchUserStarsGiven,
+  fetchRepoLanguages,
+  fetchUserPullRequests
 } from "./scrape.js";
 import cookieParser from "cookie-parser";
 import path from "path";
@@ -165,6 +167,38 @@ passport.use(
             ]
           );
         }
+        for (const repo of repos) {
+          // First check if the repository exists in your database
+          const repoExists = await client.query(
+            'SELECT repo_id FROM Repositories WHERE github_repo_id = $1',
+            [repo.id]
+          );
+        
+          if (!repoExists.rows.length) {
+            console.log(`Repository ${repo.name} not found in database, skipping...`);
+            continue;
+          }
+        
+          const repoId = repoExists.rows[0].repo_id;
+          const languages = await fetchRepoLanguages(profile.username, repo.name);
+          
+          const totalBytes = Object.values(languages).reduce((sum, bytes) => sum + bytes, 0);
+          
+          for (const [language, bytes] of Object.entries(languages)) {
+            const percentage = (bytes / totalBytes) * 100;
+            
+            await client.query(
+              `INSERT INTO RepositoryLanguages(repo_id, language, percentage)
+               VALUES ($1, $2, $3)
+               ON CONFLICT (repo_id, language) 
+               DO UPDATE SET 
+                 percentage = EXCLUDED.percentage,
+                 updated_at = CURRENT_TIMESTAMP`,
+              [repoId, language, percentage]  // Use the database repo_id, not GitHub's ID
+            );
+          }
+        }
+        
 
         const commits = await fetchUserCommits(profile.username);
 
@@ -182,6 +216,28 @@ passport.use(
             ]
           );
         }
+
+        const totalIssues = await fetchUserIssues(profile.username);
+        await client.query(
+          `INSERT INTO UserIssues (user_id, total_issues)
+           VALUES ($1, $2)
+           ON CONFLICT (user_id) 
+           DO UPDATE SET 
+               total_issues = EXCLUDED.total_issues,
+               fetched_at = CURRENT_TIMESTAMP`,
+          [user.user_id, totalIssues]
+      );
+         
+      const totalPRs = await fetchUserPullRequests(profile.username);
+      await client.query(
+        `INSERT INTO UserPullRequests (user_id, total_prs)
+         VALUES ($1, $2)
+         ON CONFLICT (user_id) DO UPDATE SET 
+           total_prs = EXCLUDED.total_prs,
+           fetched_at = CURRENT_TIMESTAMP`,
+        [user.user_id, totalPRs]
+      );
+
 
 
         const token = jwt.sign({ userId: user.user_id }, JWT_SECRET);
@@ -290,7 +346,7 @@ app.get("/user/repos", async (req, res) => {
     const client = await pool.connect();
     try {
       const repos = await client.query(
-        "SELECT * FROM Repositories WHERE user_id = $1",
+        "SELECT * FROM Repositories WHERE user_id = $1 ORDER BY created_at DESC",
         [decoded.userId]
       );
       res.json(repos.rows || []);
@@ -402,7 +458,7 @@ app.get("/user/commits", async (req, res) => {
     const client = await pool.connect();
     try {
       const commits = await client.query(
-        "SELECT * FROM Commits WHERE user_id = $1",
+        "SELECT * FROM Commits WHERE user_id = $1 ORDER BY datee DESC",
         [decoded.userId]
       );
       res.json(commits.rows || []);

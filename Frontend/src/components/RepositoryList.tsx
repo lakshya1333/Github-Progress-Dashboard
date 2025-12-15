@@ -88,7 +88,7 @@ const RepositoryList: React.FC<RepositoryListProps> = ({
           </div>
         ) : (
           <div className="grid gap-4">
-            {repositories.slice().sort((a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime()).map((repo, index) => (
+            {repositories.map((repo, index) => (
               <div 
                 key={repo.id} 
                 className="p-4 border rounded-lg hover:shadow-sm transition-all duration-200 opacity-0 animate-slide-up"

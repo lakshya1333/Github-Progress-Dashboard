@@ -104,17 +104,19 @@ const createTables = async () => {
           updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       );
 
-      CREATE TABLE IF NOT EXISTS Issues (
-          issue_id SERIAL PRIMARY KEY,
-          repo_id INT REFERENCES Repositories(repo_id) ON DELETE CASCADE,
-          title VARCHAR(255) NOT NULL,
-          description TEXT,
-          state VARCHAR(50),
-          created_at TIMESTAMP,
-          updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-          closed_at TIMESTAMP,
-          creator_id INT REFERENCES Users(user_id) ON DELETE SET NULL
-      );
+      CREATE TABLE IF NOT EXISTS UserIssues (
+    user_id INT PRIMARY KEY REFERENCES Users(user_id),
+    total_issues INT NOT NULL,
+    fetched_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+      CREATE TABLE IF NOT EXISTS UserPullRequests (
+    user_id INT PRIMARY KEY REFERENCES Users(user_id),
+    total_prs INT NOT NULL,
+    fetched_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
 
       CREATE TABLE IF NOT EXISTS RepositoryLanguages (
           repo_language_id SERIAL PRIMARY KEY,
@@ -179,7 +181,11 @@ const createTables = async () => {
       FOR EACH ROW EXECUTE FUNCTION update_timestamp();
 
       CREATE OR REPLACE TRIGGER update_issues_timestamp
-      BEFORE UPDATE ON Issues
+      BEFORE UPDATE ON UserIssues
+      FOR EACH ROW EXECUTE FUNCTION update_timestamp();
+
+      CREATE OR REPLACE TRIGGER update_userpullrequests_timestamp
+      BEFORE UPDATE ON UserPullRequests
       FOR EACH ROW EXECUTE FUNCTION update_timestamp();
 
       CREATE OR REPLACE TRIGGER update_repositorylanguages_timestamp

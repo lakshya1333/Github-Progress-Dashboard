@@ -98,3 +98,58 @@ export async function fetchUserCommits(username, ncommits=100) {
   }
 }
 
+export async function fetchRepoLanguages(owner, repo) {
+  try {
+    const response = await octokit.rest.repos.listLanguages({
+      owner,
+      repo,
+    });
+    return response.data;
+  } catch (error) {
+    console.error(`Error fetching languages for ${repo}:`, error);
+    return {};
+  }
+}
+
+export async function fetchRepoContributors(owner, repo) {
+  try {
+    const response = await octokit.rest.repos.listContributors({
+      owner,
+      repo,
+    });
+    return response.data;
+  } catch (error) {
+    console.error(`Error fetching contributors for ${repo}:`, error);
+    return [];
+  }
+}
+
+export async function fetchRepoPullRequests(owner, repo) {
+  try {
+    const response = await octokit.rest.pulls.list({
+      owner,
+      repo,
+      state: "all",
+      per_page: 50,
+    });
+    return response.data;
+  } catch (error) {
+    console.error(`Error fetching pull requests for ${repo}:`, error);
+    return [];
+  }
+}
+
+export async function fetchRepoIssues(owner, repo) {
+  try {
+    const response = await octokit.rest.issues.listForRepo({
+      owner,
+      repo,
+      state: "all",
+      per_page: 50,
+    });
+    return response.data;
+  } catch (error) {
+    console.error(`Error fetching issues for ${repo}:`, error);
+    return [];
+  }
+}

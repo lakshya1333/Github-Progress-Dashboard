@@ -31,90 +31,6 @@ const PDFDownloadButton = ({
   const [isGenerating, setIsGenerating] = useState(false);
   const { toast } = useToast();
 
-  const downloadPDF = async () => {
-    const element = targetRef.current;
-    if (!element) {
-      toast({
-        title: "Error",
-        description: "Could not find the content to download",
-        variant: "destructive"
-      });
-      return;
-    }
-
-    try {
-      setIsGenerating(true);
-      toast({
-        title: "Generating PDF",
-        description: "Please wait while we create your PDF...",
-      });
-
-      // Store original styling
-      const originalStyles = {
-        overflow: document.body.style.overflow,
-        height: element.style.height,
-        maxHeight: element.style.maxHeight,
-        position: element.style.position,
-      };
-
-      // Temporarily modify styles for better capture
-      document.body.style.overflow = 'visible';
-      element.style.height = 'auto';
-      element.style.maxHeight = 'none';
-      element.style.position = 'relative';
-
-      // Force any animations to complete
-      await new Promise(resolve => setTimeout(resolve, 100));
-
-      const canvas = await html2canvas(element, {
-        scale: 2,
-        useCORS: true,
-        logging: false,
-        allowTaint: true,
-        backgroundColor: '#ffffff',
-        windowWidth: 1200, // Set a consistent width for the capture
-      });
-
-      // Restore original styles
-      document.body.style.overflow = originalStyles.overflow;
-      element.style.height = originalStyles.height;
-      element.style.maxHeight = originalStyles.maxHeight;
-      element.style.position = originalStyles.position;
-
-      const imgData = canvas.toDataURL('image/png');
-      const pdf = new jsPDF({
-        orientation: 'portrait',
-        unit: 'px',
-        format: [canvas.width, canvas.height]
-      });
-
-      // Calculate the PDF dimensions
-      const pdfWidth = pdf.internal.pageSize.getWidth();
-      const pdfHeight = pdf.internal.pageSize.getHeight();
-      const ratio = Math.min(pdfWidth / canvas.width, pdfHeight / canvas.height);
-      const imgWidth = canvas.width * ratio;
-      const imgHeight = canvas.height * ratio;
-      const xPos = (pdfWidth - imgWidth) / 2;
-
-      pdf.addImage(imgData, 'PNG', xPos, 0, imgWidth, imgHeight);
-      pdf.save(filename);
-
-      toast({
-        title: "Success!",
-        description: "Your PDF has been successfully downloaded",
-      });
-    } catch (error) {
-      console.error('Error generating PDF:', error);
-      toast({
-        title: "Error",
-        description: "Failed to generate PDF. Please try again.",
-        variant: "destructive"
-      });
-    } finally {
-      setIsGenerating(false);
-    }
-  };
-
   const downloadLatex = async () => {
     if (!userData) {
       toast({
@@ -333,9 +249,6 @@ Language: ${repo.language || 'Not specified'} | Updated: ${new Date(repo.updated
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent className="w-48">
-        <DropdownMenuItem onClick={downloadPDF} className="cursor-pointer flex items-center gap-2">
-          <FileImage className="h-4 w-4" /> Download as PDF
-        </DropdownMenuItem>
         <DropdownMenuItem onClick={downloadLatex} className="cursor-pointer flex items-center gap-2">
           <FileText className="h-4 w-4" /> Export as LaTeX
         </DropdownMenuItem>
